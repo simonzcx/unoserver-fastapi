@@ -33,9 +33,20 @@ RUN apk add --no-cache \
     ttf-hack \
     ttf-inconsolata \
     ttf-liberation \
-    ttf-mononoki  \
-    ttf-opensans   \
+    ttf-mononoki \
+    ttf-opensans \
     fontconfig && \
+    # Create font directory structure
+    mkdir -p /usr/share/fonts/chinese && \
+    # Install packages needed for Chinese support
+    apk add --no-cache \
+    musl-locales musl-locales-lang && \
+    # Set locale environment variables for container
+    echo 'export LANG=zh_CN.UTF-8' > /etc/profile.d/locale.sh && \
+    echo 'export LC_ALL=zh_CN.UTF-8' >> /etc/profile.d/locale.sh && \
+    echo 'export LC_CTYPE=zh_CN.UTF-8' >> /etc/profile.d/locale.sh && \
+    chmod +x /etc/profile.d/locale.sh && \
+    # Update font cache
     fc-cache -f
 
 RUN rm -rf /var/cache/apk/* /tmp/*

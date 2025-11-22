@@ -33,8 +33,8 @@ if [ ! -t 0 ]; then
     wait_for_unoserver
 
     # Start FastAPI application with uvicorn
-    echo "Starting FastAPI application..."
-    uvicorn app:app --host 0.0.0.0 --port 8000 --reload=False
+echo "Starting FastAPI application..."
+uvicorn app:app --host 0.0.0.0 --port 8000
     # Keep container running if uvicorn exits unexpectedly
     tail -f /dev/null
 else
@@ -52,9 +52,9 @@ else
     wait_for_unoserver
 
     # Start FastAPI application with uvicorn in background
-    echo "Starting FastAPI application in background..."
-    uvicorn app:app --host 0.0.0.0 --port 8000 --reload=False &
-    
+echo "Starting FastAPI application in background..."
+uvicorn app:app --host 0.0.0.0 --port 8000 &
+
     # if commands have been passed to container run them and exit, else start bash
     if [[ $# -gt 0 ]]; then
         eval "$@"
