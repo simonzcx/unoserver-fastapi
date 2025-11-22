@@ -41,14 +41,12 @@ RUN apk add --no-cache \
 RUN rm -rf /var/cache/apk/* /tmp/*
 
 # https://github.com/unoconv/unoserver/
-RUN pip install --break-system-packages -U unoserver==${VERSION_UNOSERVER}
+RUN pip install --break-system-packages -U unoserver==${VERSION_UNOSERVER} fastapi uvicorn python-multipart
 
 # setup supervisor
+COPY --chown=${UID}:${GID} app.py /home/worker/
 COPY --chown=${UID}:${GID} ${BUILD_CONTEXT} /
-RUN chmod +x entrypoint.sh && \
-    #    mkdir -p /var/log/supervisor && \
-    #    chown ${UID}:${GID} /var/log/supervisor && \
-    #    mkdir -p /var/run && \
+RUN chmod +x /entrypoint.sh && \
     chown -R ${UID}:0 /run && \
     chmod -R g=u /run
 
@@ -57,5 +55,5 @@ WORKDIR /home/worker
 ENV HOME="/home/worker"
 
 VOLUME ["/data"]
-EXPOSE 2003
+EXPOSE 8000
 ENTRYPOINT ["/entrypoint.sh"]
