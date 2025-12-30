@@ -1,61 +1,94 @@
-FROM eclipse-temurin:24.0.1_9-jdk-alpine-3.21
+# Use DaoCloud mirrored vllm image for China region for gpu with Ampere architecture and above (Compute Capability>=8.0)
+# Compute Capability version query (https://developer.nvidia.com/cuda-gpus)
+FROM docker.m.daocloud.io/vllm/vllm-openai:v0.11.0
 
-ARG BUILD_CONTEXT="build-context"
-ARG UID=worker
-ARG GID=worker
+# ===========================================
+# unoconv 相关配置
+# ===========================================
 # renovate: pypi: unoserver
 ARG VERSION_UNOSERVER=3.4
 
-LABEL org.opencontainers.image.title="unoserver-docker"
-LABEL org.opencontainers.image.description="Container image that contains unoserver and libreoffice including large set of fonts for file format conversions"
-LABEL org.opencontainers.image.licenses="MIT"
-LABEL org.opencontainers.image.documentation="https://github.com/unoconv/unoserver-docker/blob/main/README.adoc"
-LABEL org.opencontainers.image.source="https://github.com/unoconv/unoserver-docker"
-LABEL org.opencontainers.image.url="https://github.com/unoconv/unoserver-docker"
+# ===========================================
+# 镜像元数据
+# ===========================================
+LABEL org.opencontainers.image.title="mineru-unoserver"
+LABEL org.opencontainers.image.description="Container image that contains mineru and unoserver with libreoffice for file format conversions"
 
-WORKDIR /
+# ===========================================
+# 系统依赖安装
+# ===========================================
+RUN apt-get update && \
+    apt-get install -y \
+        # mineru 依赖：中文字体支持
+        fonts-noto-core \
+        fonts-noto-cjk \
+        fontconfig \
+        # mineru 依赖：OpenCV 支持
+        libgl1 \
+        # unoconv 依赖：额外字体支持
+        fonts-noto-extra \
+        # unoconv 依赖：LibreOffice 主程序
+        libreoffice \
+        # unoconv 依赖：网络工具
+        net-tools \
+        # unoconv 依赖：中文locale支持
+        locales \
+        # unoconv 依赖：更多字体支持
+        fonts-noto-hinted \
+        fonts-noto-unhinted \
+        fonts-dejavu \
+        fonts-freefont-ttf \
+        fonts-liberation && \
+    # 设置中文locale
+    sed -i '/zh_CN.UTF-8/s/^# //g' /etc/locale.gen && \
+    locale-gen && \
+    # 创建中文字体目录结构
+    mkdir -p /usr/share/fonts/chinese && \
+    # 设置locale环境变量
+    echo 'export LANG=zh_CN.UTF-8' > /etc/profile.d/locale.sh && \
+    echo 'export LC_ALL=zh_CN.UTF-8' >> /etc/profile.d/locale.sh && \
+    echo 'export LC_CTYPE=zh_CN.UTF-8' >> /etc/profile.d/locale.sh && \
+    chmod +x /etc/profile.d/locale.sh && \
+    # 更新字体缓存
+    fc-cache -fv && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-RUN addgroup -S ${GID} && adduser -S ${UID} -G ${GID}
+# ===========================================
+# mineru 相关配置
+# ===========================================
+# 安装 mineru 最新版本
+RUN python3 -m pip install -U 'mineru[core]' -i https://mirrors.aliyun.com/pypi/simple --break-system-packages && \
+    python3 -m pip cache purge
 
-RUN apk add --no-cache \
-    bash curl \
-    py3-pip \
-    libreoffice \
-    supervisor
+# 下载模型并更新配置文件
+RUN /bin/bash -c "mineru-models-download -s modelscope -m all"
 
-# fonts - https://wiki.alpinelinux.org/wiki/Fonts
-RUN apk add --no-cache \
-    font-noto font-noto-cjk font-noto-extra \
-    terminus-font \
-    ttf-font-awesome \
-    ttf-dejavu \
-    ttf-freefont \
-    ttf-hack \
-    ttf-inconsolata \
-    ttf-liberation \
-    ttf-mononoki  \
-    ttf-opensans   \
-    fontconfig && \
-    fc-cache -f
+# ===========================================
+# unoconv 相关配置
+# ===========================================
+# 安装 unoserver
+RUN python3 -m pip install --break-system-packages -U unoserver==${VERSION_UNOSERVER}
 
-RUN rm -rf /var/cache/apk/* /tmp/*
+# ===========================================
+# 用户和权限配置
+# ===========================================
+# 设置中文环境变量
+ENV LANG=zh_CN.UTF-8
+ENV LC_ALL=zh_CN.UTF-8
+ENV LC_CTYPE=zh_CN.UTF-8
 
-# https://github.com/unoconv/unoserver/
-RUN pip install --break-system-packages -U unoserver==${VERSION_UNOSERVER}
+# 保持与原mineru-dockerfile.yml一致，默认使用root用户，确保GPU访问权限
+# 原配置没有指定USER，默认使用root用户
 
-# setup supervisor
-COPY --chown=${UID}:${GID} ${BUILD_CONTEXT} /
-RUN chmod +x entrypoint.sh && \
-    #    mkdir -p /var/log/supervisor && \
-    #    chown ${UID}:${GID} /var/log/supervisor && \
-    #    mkdir -p /var/run && \
-    chown -R ${UID}:0 /run && \
-    chmod -R g=u /run
-
-USER ${UID}
-WORKDIR /home/worker
-ENV HOME="/home/worker"
-
+# ===========================================
+# 容器运行配置
+# ===========================================
+# 数据卷配置
 VOLUME ["/data"]
+# unoconv 端口暴露
 EXPOSE 2003
-ENTRYPOINT ["/entrypoint.sh"]
+
+# 设置入口点，与原mineru-dockerfile.yml保持一致
+# 确保每次运行命令时都设置MINERU_MODEL_SOURCE=local环境变量
+ENTRYPOINT ["/bin/bash", "-c", "export MINERU_MODEL_SOURCE=local && exec \"$@\"", "--"]
