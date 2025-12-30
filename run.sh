@@ -1,3 +1,12 @@
+docker build -t mineru-unoserver:latest .
+
+docker run --gpus all \
+--shm-size 32g \
+-p 8000:8000 \
+--ipc=host \
+-itd mineru-unoserver:latest \
+/bin/bash -c "mineru-api --host 0.0.0.0 --port 8000"
+
 docker run --gpus all \
 --shm-size 32g \
 -p 8000:8000 \
