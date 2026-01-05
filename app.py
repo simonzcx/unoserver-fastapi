@@ -189,8 +189,6 @@ async def convert_word_to_pdf(file: UploadFile = File(..., description="Word doc
                 "--port", "2003",
                 "--timeout", str(CONVERSION_TIMEOUT),  # 使用统一的转换超时设置
                 "--convert-to", "pdf:writer_pdf_Export",  # 使用writer_pdf_Export过滤器
-                "--writer-pdf-output-resample-images", "false",  # 不重新采样图片
-                "--writer-pdf-output-image-resolution", "300",  # 设置图片分辨率为300dpi
                 input_path,
                 output_path
             ]
@@ -209,8 +207,6 @@ async def convert_word_to_pdf(file: UploadFile = File(..., description="Word doc
                 "--nodefault",  # 不打开默认文档
                 "--convert-to", "pdf:writer_pdf_Export",  # 使用writer_pdf_Export过滤器
                 "--outdir", os.path.dirname(output_path),  # 输出目录
-                "--writer-pdf-output-resample-images", "false",  # 不重新采样图片
-                "--writer-pdf-output-image-resolution", "300",  # 设置图片分辨率为300dpi
                 input_path  # 输入文件
             ]
             
